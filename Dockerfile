@@ -1,4 +1,4 @@
-# ベースイメージをCUDA 12.0に変更
+# ベースイメージをCUDA 12.0に変更。CUDA 12.1 だと GPU を認識しなかった
 FROM nvidia/cuda:12.0.0-devel-ubuntu22.04
 
 ENV DEBIAN_FRONTEND=noninteractive
