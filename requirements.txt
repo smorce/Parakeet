@@ -1,0 +1,8 @@
+fastapi
+uvicorn[standard]
+scipy
+numpy
+faster-whisper
+ctranslate2[cuda]
+librosa
+soundfile

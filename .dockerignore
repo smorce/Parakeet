@@ -1,0 +1,13 @@
+node_modules
+.cursor
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.git
+.gitignore
+README.md
+models_cache
+【bk1】Dockerfile
+.cursorignore
+audio

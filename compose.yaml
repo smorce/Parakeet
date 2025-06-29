@@ -1,0 +1,27 @@
+services:
+  realtime-speech-to-text:
+    build: .
+    image: realtime-speech-to-text:latest
+    container_name: realtime-speech-to-text-container
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=all
+      # GPU メモリ分割を有効化
+      - CUDA_MPS_ENABLE_PER_CTX_DEVICE_MULTIPROCESSOR_PARTITIONING=1
+      # PyTorchのメモリ効率化
+      - PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:512
+    # ports:
+    #   - "3791:3791"
+    volumes:
+      - ./audio:/app/audio
+    command: ["/app/audio/sample.wav"]
+    shm_size: '4.0gb'
+    tty: true
+    restart: "no"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]

@@ -1,0 +1,57 @@
+FROM nvidia/cuda:12.1.0-runtime-ubuntu22.04
+ENV DEBIAN_FRONTEND=noninteractive
+# CUDA関連の環境変数の設定
+ENV PATH="/usr/local/cuda/bin:${PATH}"
+ENV LD_LIBRARY_PATH="/usr/local/cuda/lib64:${LD_LIBRARY_PATH}"
+ENV NVIDIA_DISABLE_REQUIRE=true
+ENV NVIDIA_VISIBLE_DEVICES=all
+ENV NVIDIA_DRIVER_CAPABILITIES=compute,utility
+# Compute capability: 8.9。
+ENV TORCH_CUDA_ARCH_LIST="8.9"
+ENV CUDA_DOCKER_ARCH=all
+# 警告抑制のための環境変数を追加
+ENV PYTHONWARNINGS="ignore::FutureWarning"
+# uv のHTTPタイムアウトとリトライ設定
+ENV UV_HTTP_TIMEOUT=500
+ENV UV_CONCURRENT_DOWNLOADS=1
+
+# uv バイナリのコピー
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+
+# システムパッケージのインストール
+RUN apt-get update && apt-get upgrade -y && \
+    apt-get install -y --no-install-recommends \
+      python3.10 python3-pip python3.10-dev git \
+      build-essential gcc wget \
+      ocl-icd-opencl-dev opencl-headers clinfo \
+      libclblast-dev libopenblas-dev \
+      ffmpeg \
+      sox libsox-fmt-mp3 \
+      libsndfile1 && \
+    mkdir -p /etc/OpenCL/vendors && echo "libnvidia-opencl.so.1" > /etc/OpenCL/vendors/nvidia.icd && \
+    rm -rf /var/lib/apt/lists/*
+
+# uv を使った Python パッケージのインストール（システム環境へ）
+# コンテナ自身が隔離環境を提供するため、仮想環境を省略しシステムインストールを行うのが一般的です。つまり、ここでは仮想環境は作っておらず、コンテナ内にインストールしている。
+# uv pip コマンドは独自のフラグ解釈をしていて、--timeout や --retries は直接渡せないため、後ろに -- を置いて pip にオプションを渡す必要があります。以下のように書き換えてみてください。
+RUN uv pip install --system \
+      --extra-index-url https://download.pytorch.org/whl/cu121 \
+      torch==2.3.0+cu121 \
+      torchvision==0.18.0+cu121 \
+      torchaudio==2.3.0+cu121 && \
+    uv pip install --system nemo_toolkit[asr]
+
+# requirements.txt を先にコピーしてインストール（キャッシュ効率化のため）
+COPY requirements.txt* ./
+RUN test -f requirements.txt && \
+    uv pip install --system -r requirements.txt || \
+    echo "requirements.txt not found, skipping"
+
+# WORKDIR とアプリケーションコード全体のコピー
+WORKDIR /app
+COPY . .
+
+# entrypoint.sh を実行可能に
+RUN chmod +x /app/entrypoint.sh
+
+ENTRYPOINT ["bash", "/app/entrypoint.sh"]
