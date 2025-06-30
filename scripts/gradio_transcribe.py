@@ -398,6 +398,11 @@ def create_gradio_interface():
         };
         
         realtimeState.recognition.onerror = function(event) {
+            // 'aborted' は stopRealtimeRecognition() による正常終了なので無視する
+            if (event.error === 'aborted') {
+                updateStatus('⏹️ リアルタイム認識を停止しました');
+                return;
+            }
             console.error('音声認識エラー:', event.error);
             updateStatus(`❌ エラー: ${event.error}`);
         };
@@ -445,7 +450,8 @@ def create_gradio_interface():
     window.stopRealtimeRecognition = function() {
         realtimeState.isActive = false;
         if (realtimeState.recognition) {
-            realtimeState.recognition.abort();
+            // abort() は 'aborted' エラーイベントを発火するため、stop() を使用して穏やかに終了
+            realtimeState.recognition.stop();
         }
         if (realtimeState.stream) {
             realtimeState.stream.getTracks().forEach(track => track.stop());
