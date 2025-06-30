@@ -219,6 +219,7 @@ def process_audio_file(audio_file, progress=gr.Progress()):
     try:
         # モデルが読み込まれていない場合は読み込む
         global model, model_device
+        model_was_loaded = model_loaded
         if not model_loaded:
             progress(0.0, desc="モデルを読み込み中...")
             model, model_device = load_model_with_fallback(device, progress)
@@ -251,6 +252,39 @@ def process_audio_file(audio_file, progress=gr.Progress()):
             torch.cuda.empty_cache()
 
 # Gradio インターフェースの作成
+def get_system_info():
+    """システム情報を取得"""
+    info = {
+        "device": device.upper(),
+        "cuda_available": torch.cuda.is_available(),
+        "gpu_count": 0,
+        "gpu_name": "None",
+        "total_memory": "N/A",
+        "allocated_memory": "N/A",
+        "cached_memory": "N/A"
+    }
+    
+    if torch.cuda.is_available():
+        info["gpu_count"] = torch.cuda.device_count()
+        info["gpu_name"] = torch.cuda.get_device_name(0)
+        
+        try:
+            total_memory = torch.cuda.get_device_properties(0).total_memory / 1024**3
+            info["total_memory"] = f"{total_memory:.2f} GB"
+            
+            if model_loaded:
+                allocated = torch.cuda.memory_allocated() / 1024**3
+                cached = torch.cuda.memory_reserved() / 1024**3
+                info["allocated_memory"] = f"{allocated:.2f} GB"
+                info["cached_memory"] = f"{cached:.2f} GB"
+            else:
+                info["allocated_memory"] = "モデル未読み込み"
+                info["cached_memory"] = "モデル未読み込み"
+        except:
+            pass
+    
+    return info
+
 def create_gradio_interface():
     """Gradio インターフェースを作成"""
     
@@ -288,13 +322,41 @@ def create_gradio_interface():
                     show_copy_button=True
                 )
         
-        # システム情報表示
-        gr.Markdown(f"""
-        ### システム情報
-        - **使用デバイス**: {device.upper()}
-        - **モデル**: nvidia/parakeet-tdt_ctc-0.6b-ja, silero-vad
-        - **対応フォーマット**: WAV, MP3, FLAC, M4A など
-        """)
+        # システム情報表示（動的更新）
+        with gr.Row():
+            with gr.Column():
+                system_info_display = gr.Markdown(
+                    value="### システム情報\n読み込み中...",
+                    label="システム情報"
+                )
+                
+                # システム情報更新ボタン
+                refresh_btn = gr.Button("🔄 システム情報を更新", size="sm")
+        
+        def update_system_info():
+            """システム情報を更新"""
+            info = get_system_info()
+            
+            markdown_text = f"""
+### 📊 システム情報
+
+#### 🖥️ デバイス情報
+- **使用デバイス**: {info['device']}
+- **CUDA利用可能**: {'✅ はい' if info['cuda_available'] else '❌ いいえ'}
+- **GPU数**: {info['gpu_count']}
+- **GPU名**: {info['gpu_name']}
+
+#### 💾 メモリ情報
+- **総GPU メモリ**: {info['total_memory']}
+- **使用中メモリ**: {info['allocated_memory']}
+- **キャッシュメモリ**: {info['cached_memory']}
+
+#### 🤖 モデル情報
+- **モデル**: nvidia/parakeet-tdt_ctc-0.6b-ja, silero-vad
+- **モデル状態**: {'✅ 読み込み済み' if model_loaded else '⏳ 未読み込み'}
+- **対応フォーマット**: WAV, MP3, FLAC, M4A など
+"""
+            return markdown_text
         
         # イベントハンドラ
         transcribe_btn.click(
@@ -302,6 +364,18 @@ def create_gradio_interface():
             inputs=[audio_input],
             outputs=[output_text],
             show_progress=True
+        )
+        
+        # システム情報更新ハンドラ
+        refresh_btn.click(
+            fn=update_system_info,
+            outputs=[system_info_display]
+        )
+        
+        # 初期表示時にシステム情報を更新
+        interface.load(
+            fn=update_system_info,
+            outputs=[system_info_display]
         )
     
     return interface
