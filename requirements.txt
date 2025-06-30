@@ -5,4 +5,7 @@ silero
 requests
 urllib3
 SpeechRecognition
-PyAudio
+# 注意: PyAudio, webrtcvad, numpyはブラウザネイティブ実装により不要
+# PyAudio
+# webrtcvad  
+# numpy
