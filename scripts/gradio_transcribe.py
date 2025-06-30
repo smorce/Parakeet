@@ -322,22 +322,15 @@ def create_gradio_interface():
     // リアルタイム音声認識の状態管理
     let realtimeState = {
         recognition: null,
-        recorder: null,
         stream: null,
-        audioData: [],
-        isRecording: false,
         isActive: false,
+        finalTranscript: '',
         results: []
     };
 
     // Web Speech API サポートチェック
     function checkWebSpeechSupport() {
         return 'webkitSpeechRecognition' in window || 'SpeechRecognition' in window;
-    }
-
-    // MediaRecorder サポートチェック
-    function checkMediaRecorderSupport() {
-        return 'MediaRecorder' in window;
     }
 
     // ステータス更新関数
@@ -349,141 +342,29 @@ def create_gradio_interface():
     }
 
     // 結果表示更新関数
-    function updateResults(newResult) {
+    function updateResults(transcript, isFinal) {
         const outputElement = document.getElementById('realtime_output');
         if (outputElement && outputElement.querySelector('textarea')) {
             const textarea = outputElement.querySelector('textarea');
             const timestamp = new Date().toLocaleTimeString('ja-JP');
-            const formattedResult = `[${timestamp}] ${newResult}`;
             
-            if (textarea.value) {
-                textarea.value += '\\n' + formattedResult;
+            if (isFinal) {
+                realtimeState.finalTranscript += transcript + '\\n';
+                textarea.value = realtimeState.finalTranscript;
             } else {
-                textarea.value = formattedResult;
+                textarea.value = realtimeState.finalTranscript + transcript;
             }
             
             // 自動スクロール
             textarea.scrollTop = textarea.scrollHeight;
             
-            // 結果をキャッシュ
-            realtimeState.results.push(formattedResult);
+            // 最終結果のみキャッシュ
+            if (isFinal) {
+                realtimeState.results.push(`[${timestamp}] ${transcript}`);
+            }
         }
     }
-
-    // Base64エンコード関数
-    function arrayBufferToBase64(buffer) {
-        let binary = '';
-        const bytes = new Uint8Array(buffer);
-        const len = bytes.byteLength;
-        for (let i = 0; i < len; i++) {
-            binary += String.fromCharCode(bytes[i]);
-        }
-        return window.btoa(binary);
-    }
-
-    // Google Cloud Speech API呼び出し
-    async function transcribeAudio(audioBlob) {
-        try {
-            updateStatus('🔄 音声を文字起こし中...');
-            
-            const reader = new FileReader();
-            reader.onload = async function() {
-                const audioContent = arrayBufferToBase64(reader.result);
-                
-                // Google Cloud Speech API設定
-                const config = {
-                    'config': {
-                        'language_code': 'ja-JP',
-                        'sample_rate_hertz': 44100,
-                        'encoding': 'WEBM_OPUS',
-                        'enable_automatic_punctuation': true,
-                        'model': 'default',
-                        'enableWordTimeOffsets': false
-                    },
-                    'audio': {'content': audioContent}
-                };
-
-                // APIキーを取得（カスタムキーがあれば使用）
-                const apiKeyElement = document.getElementById('api_key_input');
-                let apiKey = 'YOUR-DEFAULT-API-KEY'; // デフォルトキー
-                if (apiKeyElement && apiKeyElement.querySelector('input')) {
-                    const customKey = apiKeyElement.querySelector('input').value.trim();
-                    if (customKey) {
-                        apiKey = customKey;
-                    }
-                }
-
-                // Google Cloud Speech API呼び出し
-                const response = await fetch(`https://speech.googleapis.com/v1p1beta1/speech:recognize?key=${apiKey}`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json; charset=utf-8'
-                    },
-                    body: JSON.stringify(config)
-                });
-
-                const result = await response.json();
-                
-                if (result.results && result.results[0] && result.results[0].alternatives[0]) {
-                    const transcript = result.results[0].alternatives[0].transcript;
-                    if (transcript.trim()) {
-                        updateResults(transcript);
-                        updateStatus('🎤 音声を検出中... 話しかけてください');
-                    }
-                } else {
-                    console.log('音声が認識できませんでした');
-                }
-            };
-            reader.readAsArrayBuffer(audioBlob);
-            
-        } catch (error) {
-            console.error('文字起こしエラー:', error);
-            updateStatus(`❌ エラー: ${error.message}`);
-        }
-    }
-
-    // 録音開始
-    function startRecording() {
-        if (realtimeState.isRecording || !realtimeState.stream) return;
-        
-        try {
-            realtimeState.audioData = [];
-            realtimeState.recorder = new MediaRecorder(realtimeState.stream, {
-                mimeType: 'audio/webm;codecs=opus'
-            });
-            
-            realtimeState.recorder.addEventListener('dataavailable', (event) => {
-                if (event.data.size > 0) {
-                    realtimeState.audioData.push(event.data);
-                }
-            });
-            
-            realtimeState.recorder.addEventListener('stop', () => {
-                if (realtimeState.audioData.length > 0) {
-                    const audioBlob = new Blob(realtimeState.audioData, { type: 'audio/webm;codecs=opus' });
-                    transcribeAudio(audioBlob);
-                }
-                realtimeState.isRecording = false;
-            });
-            
-            realtimeState.recorder.start();
-            realtimeState.isRecording = true;
-            updateStatus('🔴 録音中... 話してください');
-            
-        } catch (error) {
-            console.error('録音開始エラー:', error);
-            updateStatus(`❌ 録音エラー: ${error.message}`);
-        }
-    }
-
-    // 録音停止
-    function stopRecording() {
-        if (realtimeState.isRecording && realtimeState.recorder) {
-            realtimeState.recorder.stop();
-            updateStatus('⏸️ 録音停止 - 処理中...');
-        }
-    }
-
+    
     // Web Speech Recognition設定
     function setupSpeechRecognition() {
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -498,81 +379,52 @@ def create_gradio_interface():
         realtimeState.recognition.interimResults = true;
         realtimeState.recognition.continuous = true;
         
-        // 音声検出開始時に録音開始
-        realtimeState.recognition.onaudiostart = function() {
-            console.log('音声検出開始');
-            startRecording();
+        realtimeState.recognition.onstart = function() {
+            updateStatus('🎤 音声認識中... 話しかけてください');
         };
         
-        // 音声検出終了時に録音停止
-        realtimeState.recognition.onsoundend = function() {
-            console.log('音声検出終了');
-            stopRecording();
-            
-            // 次の音声検出を開始
-            if (realtimeState.isActive) {
-                setTimeout(() => {
-                    if (realtimeState.isActive) {
-                        realtimeState.recognition.start();
-                    }
-                }, 500);
-            }
-        };
-        
-        // 結果処理（中間結果表示用）
         realtimeState.recognition.onresult = function(event) {
-            // 最終結果のみ処理（中間結果は表示しない）
-            for (let i = event.resultIndex; i < event.results.length; i++) {
+            let interimTranscript = '';
+            for (let i = event.resultIndex; i < event.results.length; ++i) {
                 if (event.results[i].isFinal) {
-                    console.log('最終結果:', event.results[i][0].transcript);
+                    updateResults(event.results[i][0].transcript, true);
+                } else {
+                    interimTranscript += event.results[i][0].transcript;
                 }
             }
+            if (interimTranscript) {
+                updateResults(interimTranscript, false);
+            }
         };
         
-        // エラーハンドリング
         realtimeState.recognition.onerror = function(event) {
             console.error('音声認識エラー:', event.error);
-            if (realtimeState.isActive && event.error !== 'no-speech') {
-                // エラー時は再開
-                setTimeout(() => {
-                    if (realtimeState.isActive) {
-                        realtimeState.recognition.start();
-                    }
-                }, 1000);
+            updateStatus(`❌ エラー: ${event.error}`);
+        };
+        
+        realtimeState.recognition.onend = function() {
+            if (realtimeState.isActive) {
+                realtimeState.recognition.start(); // 連続認識
+            } else {
+                updateStatus('⏹️ リアルタイム認識を停止しました');
             }
         };
         
         return true;
     }
 
-    // リアルタイム認識開始
-    async function startRealtimeRecognition() {
+    // グローバルスコープに関数を配置
+    window.startRealtimeRecognition = async function() {
         try {
-            // サポートチェック
             if (!checkWebSpeechSupport()) {
                 updateStatus('❌ Web Speech APIがサポートされていません');
                 return;
             }
             
-            if (!checkMediaRecorderSupport()) {
-                updateStatus('❌ MediaRecorderがサポートされていません');
-                return;
-            }
-            
             updateStatus('🎤 マイクへのアクセスを要求中...');
             
-            // マイクアクセス許可
-            realtimeState.stream = await navigator.mediaDevices.getUserMedia({
-                audio: {
-                    echoCancellation: true,
-                    echoCancellationType: 'system',
-                    noiseSuppression: true,
-                    autoGainControl: true,
-                    sampleRate: 44100
-                }
-            });
+            realtimeState.stream = await navigator.mediaDevices.getUserMedia({ audio: true });
             
-            // Web Speech Recognition設定
             if (!setupSpeechRecognition()) {
                 return;
             }
@@ -580,46 +432,33 @@ def create_gradio_interface():
             realtimeState.isActive = true;
             realtimeState.recognition.start();
             
-            updateStatus('🎤 音声を検出中... 話しかけてください');
-            
         } catch (error) {
             console.error('リアルタイム認識開始エラー:', error);
             updateStatus(`❌ エラー: ${error.message}`);
         }
     }
 
-    // リアルタイム認識停止
-    function stopRealtimeRecognition() {
+    window.stopRealtimeRecognition = function() {
         realtimeState.isActive = false;
-        
         if (realtimeState.recognition) {
             realtimeState.recognition.stop();
         }
-        
-        if (realtimeState.recorder && realtimeState.isRecording) {
-            realtimeState.recorder.stop();
-        }
-        
         if (realtimeState.stream) {
             realtimeState.stream.getTracks().forEach(track => track.stop());
-            realtimeState.stream = null;
         }
-        
-        updateStatus('⏹️ リアルタイム認識を停止しました');
     }
 
-    // 結果クリア
-    function clearResults() {
+    window.clearResults = function() {
         const outputElement = document.getElementById('realtime_output');
         if (outputElement && outputElement.querySelector('textarea')) {
             outputElement.querySelector('textarea').value = '';
         }
         realtimeState.results = [];
+        realtimeState.finalTranscript = '';
         updateStatus('🗑️ 結果をクリアしました');
     }
 
-    // 結果ダウンロード
-    function downloadResults() {
+    window.downloadResults = function() {
         if (realtimeState.results.length === 0) {
             alert('ダウンロードする結果がありません。');
             return;
@@ -636,46 +475,6 @@ def create_gradio_interface():
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
     }
-
-    // イベントリスナー設定
-    document.addEventListener('DOMContentLoaded', function() {
-        // 開始ボタン
-        const startBtn = document.getElementById('realtime_start_btn');
-        if (startBtn) {
-            startBtn.addEventListener('click', startRealtimeRecognition);
-        }
-        
-        // 停止ボタン
-        const stopBtn = document.getElementById('realtime_stop_btn');
-        if (stopBtn) {
-            stopBtn.addEventListener('click', stopRealtimeRecognition);
-        }
-        
-        // クリアボタン
-        const clearBtn = document.getElementById('clear_results_btn');
-        if (clearBtn) {
-            clearBtn.addEventListener('click', clearResults);
-        }
-        
-        // ダウンロードボタン
-        const downloadBtn = document.getElementById('download_results_btn');
-        if (downloadBtn) {
-            downloadBtn.addEventListener('click', downloadResults);
-        }
-    });
-
-    // Gradio要素が動的に作成された後のイベントリスナー設定
-    setTimeout(() => {
-        const startBtn = document.querySelector('#realtime_start_btn button');
-        const stopBtn = document.querySelector('#realtime_stop_btn button');
-        const clearBtn = document.querySelector('#clear_results_btn button');
-        const downloadBtn = document.querySelector('#download_results_btn button');
-        
-        if (startBtn) startBtn.addEventListener('click', startRealtimeRecognition);
-        if (stopBtn) stopBtn.addEventListener('click', stopRealtimeRecognition);
-        if (clearBtn) clearBtn.addEventListener('click', clearResults);
-        if (downloadBtn) downloadBtn.addEventListener('click', downloadResults);
-    }, 1000);
     </script>
     """
     
@@ -890,25 +689,25 @@ def create_gradio_interface():
             fn=None,
             inputs=[],
             outputs=[],
-            js="startRealtimeRecognition()"
+            js="window.startRealtimeRecognition()"
         )
         realtime_stop_btn.click(
             fn=None,
             inputs=[],
             outputs=[],
-            js="stopRealtimeRecognition()"
+            js="window.stopRealtimeRecognition()"
         )
         clear_results_btn.click(
             fn=None,
             inputs=[],
             outputs=[],
-            js="clearResults()"
+            js="window.clearResults()"
         )
         download_results_btn.click(
             fn=None,
             inputs=[],
             outputs=[],
-            js="downloadResults()"
+            js="window.downloadResults()"
         )
         
         # システム情報更新ハンドラ
