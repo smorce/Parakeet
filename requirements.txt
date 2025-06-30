@@ -4,3 +4,5 @@ gradio
 silero
 requests
 urllib3
+SpeechRecognition
+PyAudio

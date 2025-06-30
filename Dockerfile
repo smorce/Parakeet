@@ -18,7 +18,7 @@ RUN apt-get update && apt-get install -y \
     git git-lfs \
     build-essential \
     python3-dev \
-    sox libsox-dev ffmpeg libsndfile1 \
+    sox libsox-dev ffmpeg libsndfile1 portaudio19-dev \
     && rm -rf /var/lib/apt/lists/* \
     && git lfs install
 

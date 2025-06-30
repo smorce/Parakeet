@@ -7,6 +7,7 @@ import tempfile
 import gc
 import math
 import gradio as gr
+import speech_recognition as sr
 
 # グローバル変数でモデルとデバイス状態を管理
 model = None
@@ -39,6 +40,28 @@ if os.environ.get("FORCE_CPU", "").lower() in ("1", "true", "yes"):
 # デバイス設定
 if device == "cpu":
     torch.set_default_device("cpu")
+
+# 新しいマイク音声ファイルを文字起こしする関数
+def transcribe_mic_audio(audio_file, progress=gr.Progress()):
+    """ブラウザで録音された音声ファイル（WAV/OGGなど）を文字起こし"""
+    if audio_file is None:
+        return "録音された音声がありません。"
+
+    try:
+        recognizer = sr.Recognizer()
+        progress(0.2, desc="音声を読み込み中...")
+        with sr.AudioFile(audio_file) as source:
+            audio_data = recognizer.record(source)
+        progress(0.6, desc="音声を認識中...")
+        text = recognizer.recognize_google(audio_data, language='ja-JP')
+        progress(1.0, desc="認識完了")
+        return text
+    except sr.UnknownValueError:
+        return "音声を認識できませんでした。"
+    except sr.RequestError as e:
+        return f"Google Web Speech APIに接続できませんでした: {e}"
+    except Exception as e:
+        return f"エラーが発生しました: {e}"
 
 def load_model_with_fallback(device_preference="cuda", progress=gr.Progress()):
     """モデルを読み込み、メモリ不足時はCPUにフォールバック"""
@@ -292,46 +315,72 @@ def create_gradio_interface():
         gr.Markdown("""
         # 🎤 音声文字起こしシステム
         
-        NVIDIA Parakeet-TDT-CTCモデルを使用した日本語音声文字起こしツールです。
-        音声ファイルをアップロードして「文字起こし実行」ボタンを押してください。
+        NVIDIA Parakeet-TDT-CTCモデル（ファイル）またはGoogle Web Speech API（マイク）を使用した日本語音声文字起こしツールです。
         """)
         
-        with gr.Row():
-            with gr.Column(scale=1):
-                # 音声ファイルアップロード
-                audio_input = gr.Audio(
-                    label="音声ファイル",
-                    type="filepath",
-                    sources=["upload"]
-                )
+        with gr.Tabs():
+            # ファイルアップロードタブ
+            with gr.TabItem("⬆️ ファイルから文字起こし"):
+                with gr.Row():
+                    with gr.Column(scale=1):
+                        # 音声ファイルアップロード
+                        audio_input = gr.Audio(
+                            label="音声ファイル",
+                            type="filepath",
+                            sources=["upload"]
+                        )
+                        
+                        # 実行ボタン
+                        transcribe_btn = gr.Button(
+                            "🚀 文字起こし実行",
+                            variant="primary",
+                            size="lg"
+                        )
+                    
+                    with gr.Column(scale=2):
+                        # 結果表示
+                        output_text = gr.Textbox(
+                            label="文字起こし結果",
+                            lines=15,
+                            max_lines=30,
+                            placeholder="ここに文字起こし結果が表示されます...",
+                            show_copy_button=True
+                        )
                 
-                # 実行ボタン
-                transcribe_btn = gr.Button(
-                    "🚀 文字起こし実行",
-                    variant="primary",
-                    size="lg"
-                )
-            
-            with gr.Column(scale=2):
-                # 結果表示
-                output_text = gr.Textbox(
-                    label="文字起こし結果",
-                    lines=15,
-                    max_lines=30,
-                    placeholder="ここに文字起こし結果が表示されます...",
-                    show_copy_button=True
-                )
-        
-        # システム情報表示（動的更新）
-        with gr.Row():
-            with gr.Column():
-                system_info_display = gr.Markdown(
-                    value="### システム情報\n読み込み中...",
-                    label="システム情報"
-                )
-                
-                # システム情報更新ボタン
-                refresh_btn = gr.Button("🔄 システム情報を更新", size="sm")
+                # システム情報表示（動的更新）
+                with gr.Row():
+                    with gr.Column():
+                        system_info_display = gr.Markdown(
+                            value="### システム情報\n読み込み中...",
+                            label="システム情報"
+                        )
+                        
+                        # システム情報更新ボタン
+                        refresh_btn = gr.Button("🔄 システム情報を更新", size="sm")
+
+            # マイク入力タブ
+            with gr.TabItem("🎙️ マイクから文字起こし"):
+                with gr.Row():
+                    with gr.Column(scale=1):
+                        mic_audio = gr.Audio(
+                            label="マイク録音",
+                            type="filepath",
+                            sources=["microphone"]
+                        )
+                        mic_transcribe_btn = gr.Button(
+                            "🎤 文字起こし実行",
+                            variant="primary",
+                            size="lg"
+                        )
+
+                    with gr.Column(scale=2):
+                        mic_output_text = gr.Textbox(
+                            label="文字起こし結果",
+                            lines=15,
+                            max_lines=30,
+                            placeholder="ここにマイクからの文字起こし結果が表示されます...",
+                            show_copy_button=True
+                        )
         
         def update_system_info():
             """システム情報を更新"""
@@ -363,6 +412,13 @@ def create_gradio_interface():
             fn=process_audio_file,
             inputs=[audio_input],
             outputs=[output_text],
+            show_progress=True
+        )
+
+        mic_transcribe_btn.click(
+            fn=transcribe_mic_audio,
+            inputs=[mic_audio],
+            outputs=[mic_output_text],
             show_progress=True
         )
         
