@@ -416,6 +416,10 @@ def create_gradio_interface():
     // グローバルスコープに関数を配置
     window.startRealtimeRecognition = async function() {
         try {
+            if (realtimeState.isActive) {
+                console.warn("Recognition already active");
+                return;
+            }
             if (!checkWebSpeechSupport()) {
                 updateStatus('❌ Web Speech APIがサポートされていません');
                 return;
@@ -441,7 +445,7 @@ def create_gradio_interface():
     window.stopRealtimeRecognition = function() {
         realtimeState.isActive = false;
         if (realtimeState.recognition) {
-            realtimeState.recognition.stop();
+            realtimeState.recognition.abort();
         }
         if (realtimeState.stream) {
             realtimeState.stream.getTracks().forEach(track => track.stop());
@@ -475,6 +479,14 @@ def create_gradio_interface():
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
     }
+
+    // ページロード後にグローバル登録（Gradio再レンダリング対策）
+    window.addEventListener('load', () => {
+        globalThis.startRealtimeRecognition = window.startRealtimeRecognition;
+        globalThis.stopRealtimeRecognition  = window.stopRealtimeRecognition;
+        globalThis.clearResults            = window.clearResults;
+        globalThis.downloadResults         = window.downloadResults;
+    });
     </script>
     """
     
@@ -689,25 +701,25 @@ def create_gradio_interface():
             fn=None,
             inputs=[],
             outputs=[],
-            js="window.startRealtimeRecognition()"
+            js="() => startRealtimeRecognition()"
         )
         realtime_stop_btn.click(
             fn=None,
             inputs=[],
             outputs=[],
-            js="window.stopRealtimeRecognition()"
+            js="() => stopRealtimeRecognition()"
         )
         clear_results_btn.click(
             fn=None,
             inputs=[],
             outputs=[],
-            js="window.clearResults()"
+            js="() => clearResults()"
         )
         download_results_btn.click(
             fn=None,
             inputs=[],
             outputs=[],
-            js="window.downloadResults()"
+            js="() => downloadResults()"
         )
         
         # システム情報更新ハンドラ
