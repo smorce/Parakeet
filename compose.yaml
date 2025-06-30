@@ -19,7 +19,7 @@ services:
     volumes:
       # Hugging Face モデルキャッシュの永続化
       - hf_cache:/app/.cache/huggingface
-    command: ["python3", "scripts/realtime_transcribe_gradio.py"]
+    command: ["python3", "scripts/gradio_transcribe.py"]
     shm_size: '4.0gb'
     tty: true
     restart: "no"
