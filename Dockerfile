@@ -47,14 +47,14 @@ RUN pip install cuda-python>=12.3
 # NeMo Toolkitのインストール
 RUN pip install nemo_toolkit[asr]
 
-COPY requirements.txt* ./
+# WORKDIR を設定
+WORKDIR /app
+
+# 依存関係ファイルのみをコピー（レイヤーキャッシュ最適化）
+COPY requirements.txt ./
+
+# Python依存関係のインストール（requirements.txtが変更されない限りキャッシュされる）
 RUN pip install -r requirements.txt
 
-# WORKDIR とアプリケーションコード全体のコピー
-WORKDIR /app
+# アプリケーションコード全体のコピー（最後に実行してキャッシュ効率を向上）
 COPY . .
-
-# entrypoint.sh を実行可能に
-RUN chmod +x /app/entrypoint.sh
-
-ENTRYPOINT ["bash", "/app/entrypoint.sh"]

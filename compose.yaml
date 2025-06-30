@@ -10,11 +10,16 @@ services:
       - CUDA_MPS_ENABLE_PER_CTX_DEVICE_MULTIPROCESSOR_PARTITIONING=1
       # PyTorchのメモリ効率化
       - PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:512
-    # ports:
-    #   - "3791:3791"
+      # Hugging Face Hubキャッシュの設定
+      - HF_HOME=/app/.cache/huggingface
+      # HTTP タイムアウトの設定
+      - HF_HUB_DOWNLOAD_TIMEOUT=300
+    ports:
+      - "3791:3791"
     volumes:
-      - ./audio:/app/audio
-    command: ["/app/audio/sample.wav"]
+      # Hugging Face モデルキャッシュの永続化
+      - hf_cache:/app/.cache/huggingface
+    command: ["python3", "scripts/realtime_transcribe_gradio.py"]
     shm_size: '4.0gb'
     tty: true
     restart: "no"
@@ -25,3 +30,7 @@ services:
             - driver: nvidia
               count: all
               capabilities: [gpu]
+
+volumes:
+  hf_cache:
+    driver: local
