@@ -572,19 +572,18 @@ def create_gradio_interface():
                 gr.Markdown("""
                 ### 🎯 ブラウザネイティブ リアルタイム音声認識
                 
-                Web Speech APIによる音声検出とMediaRecorderによる高品質録音を組み合わせたハイブリッド文字起こし機能です。
+                Web Speech APIによるリアルタイム音声文字起こし機能です。NVIDIA Parakeet-TDT-CTCモデルによる文字起こしはしておりません。
                 
                 **特徴:**
-                - 🌐 ブラウザネイティブ Web Speech API による音声検出
-                - 🎤 MediaRecorder による高品質音声録音
-                - ⚡ 音声検出イベントによる自動録音開始・終了
-                - 🔄 Google Cloud Speech API による高精度文字起こし
+                - 🌐 ブラウザネイティブ Web Speech API による音声認識
+                - ⚡ リアルタイム音声文字起こし
+                - 🔄 連続認識による継続的な文字起こし
                 - 🎯 ハンズフリー操作（ボタン操作不要）
                 
                 **使い方:**
                 1. 「開始」ボタンを押してマイク権限を許可
-                2. 話しかけると自動的に録音・文字起こしが開始されます
-                3. 無音状態になると自動的に録音停止・結果表示
+                2. 話しかけると自動的に文字起こしが開始されます。VAD機能は含まれておらず、Web Speech APIの基本的な連続認識機能のみが提供されています。
+                3. 「停止」ボタンで文字起こしを終了
                 """)
                 
                 with gr.Row():
@@ -620,19 +619,8 @@ def create_gradio_interface():
                             - 言語: 日本語 (ja-JP)
                             - 連続認識: 有効
                             - 中間結果: 有効
-                            
-                            **録音設定:**
-                            - サンプルレート: 44.1kHz
-                            - エンコーディング: WebM/MP3
                             - ノイズ除去: 有効
                             """)
-                            
-                            api_key_input = gr.Textbox(
-                                label="Google Cloud Speech API Key (オプション)",
-                                placeholder="独自のAPIキーを使用する場合は入力してください",
-                                type="password",
-                                elem_id="api_key_input"
-                            )
                     
                     with gr.Column(scale=2):
                         # リアルタイム結果表示
