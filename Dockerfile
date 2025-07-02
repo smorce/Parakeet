@@ -12,7 +12,7 @@ ENV PIP_DEFAULT_TIMEOUT=1000
 ENV PIP_RETRIES=5
 ENV PIP_TRUSTED_HOST=download.pytorch.org
 
-# 2. システム依存ツールと Git LFS
+# システム依存ツールと Git LFS
 RUN apt-get update && apt-get install -y \
     python3 python3-pip gcc wget curl \
     git git-lfs \

@@ -16,10 +16,11 @@ services:
       - HF_HUB_DOWNLOAD_TIMEOUT=300
     ports:
       - "3791:3791"
+      - "5466:5466"
     volumes:
       # Hugging Face モデルキャッシュの永続化
       - hf_cache:/app/.cache/huggingface
-    command: ["python3", "scripts/gradio_transcribe.py"]
+    command: ["sh", "-c", "python3 fastapi_server.py & python3 scripts/gradio_transcribe.py"]
     shm_size: '4.0gb'
     tty: true
     restart: "no"
