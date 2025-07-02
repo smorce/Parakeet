@@ -545,6 +545,22 @@ def create_gradio_interface():
 
             # マイク入力タブ
             with gr.TabItem("🎙️ マイクから文字起こし"):
+                gr.Markdown("""
+                ### 🎯 Google Web Speech API による音声認識
+                
+                マイクで録音した音声をGoogle Web Speech APIを使用して文字起こしを行います。NVIDIA Parakeet-TDT-CTCモデルは使っていません。
+                
+                **特徴:**
+                - 🌐 Google Web Speech API による高精度な音声認識
+                - 🎤 ブラウザのマイク機能を使用した録音
+                - 🇯🇵 日本語音声の認識に対応
+                
+                **使い方:**
+                1. マイクボタンを押して録音を開始
+                2. 話し終わったら録音を停止
+                3. 「文字起こし実行」ボタンで認識を開始
+                """)
+                
                 with gr.Row():
                     with gr.Column(scale=1):
                         mic_audio = gr.Audio(
@@ -666,7 +682,7 @@ def create_gradio_interface():
 - **キャッシュメモリ**: {info['cached_memory']}
 
 #### 🤖 モデル情報
-- **モデル**: nvidia/parakeet-tdt_ctc-0.6b-ja, silero-vad
+- **モデル**: nvidia/parakeet-tdt_ctc-0.6b-ja(silero-vad(GPU) は使っていない)
 - **モデル状態**: {'✅ 読み込み済み' if model_loaded else '⏳ 未読み込み'}
 - **対応フォーマット**: WAV, MP3, FLAC, M4A など
 """
