@@ -168,6 +168,46 @@ docker compose down
 - **コンテナ化:** DockerとDocker Composeにより、依存関係を含めた実行環境を簡単に構築・再現できます。
 - **GPU対応:** NVIDIA GPUを自動で検出し、高速な文字起こし処理を実現します。GPUが利用できない場合はCPUにフォールバックします。
 
+## API
+
+### 2つのAPI
+
+*   `api_name: /process_audio_file`
+    *   これは「**音声ファイル**」コンポーネントからの入力を処理するためのAPIです。
+    *   ユーザーが**PCに保存されている音声ファイルをアップロード**する操作に対応します。
+
+```
+curl -X POST http://localhost:3791/gradio_api/call/process_audio_file -s -H "Content-Type: application/json" -d '{
+  "data": [
+							{"path":"https://github.com/gradio-app/gradio/raw/main/test/test_files/audio_sample.wav","meta":{"_type":"gradio.FileData"}}
+]}' \
+  | awk -F'"' '{ print $4}'  \
+  | read EVENT_ID; curl -N http://localhost:3791/gradio_api/call/process_audio_file/$EVENT_ID
+```
+
+*   `api_name: /transcribe_mic_audio`
+    *   これは「**マイク録音**」コンポーネントからの入力を処理するためのAPIです。
+    *   ユーザーが**ブラウザ上でマイクを使ってその場で音声を録音**する操作に対応します。
+
+```
+curl -X POST http://localhost:3791/gradio_api/call/transcribe_mic_audio -s -H "Content-Type: application/json" -d '{
+  "data": [
+							{"path":"https://github.com/gradio-app/gradio/raw/main/test/test_files/audio_sample.wav","meta":{"_type":"gradio.FileData"}}
+]}' \
+  | awk -F'"' '{ print $4}'  \
+  | read EVENT_ID; curl -N http://localhost:3791/gradio_api/call/transcribe_mic_audio/$EVENT_ID
+```
+
+| 項目 | `/process_audio_file` | `/transcribe_mic_audio` |
+| :--- | :--- | :--- |
+| **用途** | **ファイルアップロード**による文字起こし | **マイク録音**による文字起こし |
+| **対応するUI** | 「音声ファイル」コンポーネント | 「マイク録音」コンポーネント |
+| **API名** | `process_audio_file` | `transcribe_mic_audio` |
+| **入力データ** | 音声ファイル（FileData形式） | 録音された音声（FileData形式） |
+| **出力データ** | 文字起こし結果（文字列） | 文字起こし結果（文字列） |
+
+技術的には、どちらのAPIもサーバー側では同じように「音声データ（FileData）」を受け取り、「文字起こし結果（string）」を返します。しかし、Gradioアプリケーションの設計上、**ユーザーの操作（ファイル選択か、マイク録音か）に応じて呼び出されるAPIが分けられています**。
+
 ## アーキテクチャ
 
 本システムは、以下のコンポーネントがマルチスレッドで並列動作することで実現されています。
