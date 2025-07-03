@@ -1,10 +1,13 @@
-import os
-import gc
-import math
 import tempfile
+import os
+import shutil
+import subprocess
 import librosa
+import numpy as np
 import soundfile as sf
 import torch
+import gc
+import math
 import nemo.collections.asr as nemo_asr
 from fastapi import FastAPI, UploadFile, File, HTTPException, Form
 from fastapi.responses import JSONResponse
@@ -130,21 +133,62 @@ async def transcribe_endpoint(
     """音声ファイルをアップロードして文字起こしを実行する"""
     if not model_loaded or model is None:
         raise HTTPException(status_code=503, detail="Model is not loaded. Please try again later.")
-    
-    with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(file.filename)[1]) as tmp:
-        tmp.write(await file.read())
-        audio_path = tmp.name
-    
+
+    # 一時ファイルとしてWebMを保存
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".webm") as tmp_webm:
+        shutil.copyfileobj(file.file, tmp_webm)
+        webm_path = tmp_webm.name
+
+    wav_path = None # finallyブロックで使うために初期化
     try:
-        audio_chunks = split_audio(audio_path, max_duration)
+        # ffmpegを使ってWebMをWAVに変換
+        wav_path = webm_path.replace(".webm", ".wav")
+        command = [
+            "ffmpeg",
+            "-i", webm_path,      # 入力ファイル
+            "-vn",                # ビデオストリームを無視
+            "-acodec", "pcm_s16le",# WAVのコーデック
+            "-ar", "16000",       # サンプリングレートを16kHzに
+            "-ac", "1",           # モノラルに
+            wav_path
+        ]
+        
+        logger.info(f"Converting {webm_path} to {wav_path} using ffmpeg...")
+        subprocess.run(command, check=True, capture_output=True, text=True)
+        
+        # 音声が処理可能かチェック (変換後のWAVファイルに対して)
+        try:
+            y, sr = librosa.load(wav_path, sr=16000, mono=True)
+            duration = librosa.get_duration(y=y, sr=sr)
+        except Exception as e:
+            logger.warning(f"Could not load converted audio file {wav_path}, skipping. Error: {e}")
+            return JSONResponse(status_code=200, content={"transcription": ""})
+
+        # 無音に近い場合はスキップ
+        if duration < 0.1:
+            logger.info(f"Audio chunk duration ({duration:.2f}s) is too short. Skipping.")
+            return JSONResponse(status_code=200, content={"transcription": ""})
+        
+        # 既存の処理をWAVファイルに対して実行
+        # split_audioは既にパスを受け取るので、そのまま使える
+        audio_chunks = split_audio(wav_path, max_duration)
         transcriptions = transcribe_audio_chunks(model, audio_chunks)
         final_result = "\n".join(transcriptions)
+        
         return JSONResponse(status_code=200, content={"transcription": final_result})
+
+    except subprocess.CalledProcessError as e:
+        logger.error(f"ffmpeg conversion failed. Error: {e.stderr}")
+        raise HTTPException(status_code=500, detail=f"ffmpeg conversion failed: {e.stderr}")
     except Exception as e:
-        logger.error(f"An error occurred during transcription: {e}")
+        logger.error(f"An error occurred during transcription: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
     finally:
-        if os.path.exists(audio_path): os.remove(audio_path)
+        # 一時ファイルをクリーンアップ
+        if os.path.exists(webm_path):
+            os.remove(webm_path)
+        if wav_path and os.path.exists(wav_path):
+            os.remove(wav_path)
         gc.collect()
 
 @app.get("/health", status_code=200)
