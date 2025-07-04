@@ -7,6 +7,14 @@ ENV PATH="/usr/local/cuda/bin:${PATH}"
 ENV LD_LIBRARY_PATH="/usr/local/cuda/lib64:${LD_LIBRARY_PATH}"
 ENV NVIDIA_DISABLE_REQUIRE=true
 
+# fastrtc-jpパッケージの情報を調査した結果、PyPIのページでPython 3.11以上が必須要件
+# Python 3.11をインストールしてデフォルトに設定
+RUN apt-get update && apt-get install -y software-properties-common && \
+    add-apt-repository ppa:deadsnakes/ppa && \
+    apt-get update && apt-get install -y \
+    python3.11 python3.11-venv python3.11-dev && \
+    update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 1
+
 # pipのタイムアウト設定とリトライ設定
 ENV PIP_DEFAULT_TIMEOUT=1000
 ENV PIP_RETRIES=5

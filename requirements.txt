@@ -7,4 +7,10 @@ gradio
 silero
 requests
 urllib3
-SpeechRecognition
+# 3.10.0以降は、だめ
+SpeechRecognition==3.10.0
+style-bert-vits2>=2.5.0
+pyopenjtalk>=0.4.1 # openjtalkを最新にしないと、エラーになる
+fastrtc[vad]>=0.0.23
+fastrtc-jp
+fastrtc-jp[sbv2,gtts]
