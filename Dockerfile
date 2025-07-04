@@ -9,6 +9,7 @@ ENV NVIDIA_DISABLE_REQUIRE=true
 
 # fastrtc-jpパッケージの情報を調査した結果、PyPIのページでPython 3.11以上が必須要件
 # Python 3.11をインストールしてデフォルトに設定
+# →今はfastrtc-jpを使ってないけど、このままにしておく。
 RUN apt-get update && apt-get install -y software-properties-common && \
     add-apt-repository ppa:deadsnakes/ppa && \
     apt-get update && apt-get install -y \
@@ -46,15 +47,6 @@ RUN pip install --timeout=1000 --retries=5 \
     torchvision==0.18.1+cu118 \
     --index-url https://download.pytorch.org/whl/cu118
 
-# 基本パッケージのインストール
-RUN pip install numpy==1.26.4
-
-# cuda-pythonを追加（性能向上のため）
-RUN pip install cuda-python>=12.3
-
-# NeMo Toolkitのインストール
-RUN pip install nemo_toolkit[asr]
-
 # WORKDIR を設定
 WORKDIR /app
 
@@ -63,6 +55,15 @@ COPY requirements.txt ./
 
 # Python依存関係のインストール（requirements.txtが変更されない限りキャッシュされる）
 RUN pip install -r requirements.txt
+
+# requirements のインストールが終わった後に numpy を安定版で上書きする
+RUN pip install numpy==1.26.4
+
+# cuda-pythonを追加（性能向上のため）
+RUN pip install cuda-python>=12.3
+
+# NeMo Toolkitのインストール
+RUN pip install nemo_toolkit[asr]
 
 # アプリケーションコード全体のコピー（最後に実行してキャッシュ効率を向上）
 COPY . .
