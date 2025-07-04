@@ -566,7 +566,7 @@ def create_gradio_interface():
                         mic_audio = gr.Audio(
                             label="マイク録音",
                             type="filepath",
-                            sources=["microphone"]
+                            sources=["microphone"]  # エラーの原因は、Gradioのバージョンアップに伴い、gr.Audioの仕様が変更されたことでした。source引数がsources（複数形）になり、リスト形式（["microphone"]）で指定する必要がありました。
                         )
                         mic_transcribe_btn = gr.Button(
                             "🎤 文字起こし実行",

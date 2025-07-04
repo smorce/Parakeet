@@ -1,3 +1,8 @@
+# このファイルは以下で使うためのもの。ポート：5466
+# ```
+# \\wsl.localhost\Ubuntu-24.04\home\smorce\python_https_server
+# 【checkpoint_3秒ごとにバッチ処理するリアルタイム文字起こしが動いた】fastapi_server_Parakeet_v3.html
+# ```
 import tempfile
 import os
 import shutil
@@ -85,7 +90,7 @@ def load_model():
         logger.error(f"Failed to load the model: {e}")
         raise RuntimeError(f"Model loading failed: {e}") from e
 
-# --- 音声処理・文字起こし関数 (変更なし) ---
+# --- 音声処理・文字起こし関数 ---
 def split_audio(audio_path: str, max_duration: int = 30):
     y, sr = librosa.load(audio_path, sr=16000, mono=True)
     duration = len(y) / sr
@@ -199,4 +204,8 @@ def health_check():
 # --- Uvicornで実行 ---
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("fastapi_server:app", host="0.0.0.0", port=5466, reload=True)
+    uvicorn.run("fastapi_server_stable:app",
+                host="0.0.0.0",
+                port=5466,
+                reload=True
+                )

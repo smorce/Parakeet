@@ -1,12 +1,8 @@
 https://github.com/smorce/Parakeet
 
 
-
-後で消す：
-エラーの原因は、Gradioのバージョンアップに伴い、gr.Audioの仕様が変更されたことでした。source引数がsources（複数形）になり、リスト形式（["microphone"]）で指定する必要がありました。
-
-
 Gradio: http://localhost:3791/
+FastAPI: port: 5466
 
 
 ## 使い方
@@ -20,12 +16,12 @@ Gradio: http://localhost:3791/
 ./dev.sh
 ```
 
-2. **通常起動** - キャッシュを活用したビルド
+2. **通常起動** - キャッシュを活用したビルド。compose.yamlやコードだけ修正した場合はこれで良い
 ```bash
 ./start.sh
 ```
 
-3. **クリーンビルド** - 全て再ビルド（依存関係を変更した場合）
+3. **クリーンビルド** - 全て再ビルド（依存関係を変更した場合）。ライブラリを変更した場合などはこれ。
 ```bash
 ./start.sh --clean
 ```

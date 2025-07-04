@@ -17,12 +17,10 @@ services:
     ports:
       - "3791:3791"
       - "5466:5466"
-      - "6075:6075"
-      - "6076:6076"
     volumes:
       # Hugging Face モデルキャッシュの永続化
       - hf_cache:/app/.cache/huggingface
-    command: ["sh", "-c", "python3 fastapi_server_v2.py & python3 scripts/gradio_transcribe.py & python3 simple_fastrtc_server_v1.py & python3 simple_fastrtc_server_v1_1.py"]
+    command: ["sh", "-c", "python3 fastapi_server_stable.py & python3 scripts/gradio_transcribe.py"]
     shm_size: '4.0gb'
     tty: true
     restart: "no"

@@ -1,3 +1,18 @@
+v1, v2 でfastRTCを使おうとしたが無理。Cドライブ側で uv だけ、以下で使って遊んでみたい。
+simple_fastrtc_server_v1.py
+simple_fastrtc_server_v1_1.py
+Docker＋WSLでマイクを使うのは無理。
+
+安定版の fastapi_server_stable を使えば、以下でAPIは使える。
+
+◯WSLであり、Cドライブじゃない。HTTPS をCドライブ側で使おうしたら、Lets_Encrypts_HTTP_01_Challenge で失敗してしまい、ルーターの設定をしないと駄目っぽいから。結局WSLに戻ってきて、WSL側でサクッと HTTPS でやった。
+```
+\\wsl.localhost\Ubuntu-24.04\home\smorce\python_https_server
+【checkpoint_3秒ごとにバッチ処理するリアルタイム文字起こしが動いた】fastapi_server_Parakeet_v3.html
+```
+
+
+
 import tempfile
 import os
 import shutil
