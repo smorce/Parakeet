@@ -2,7 +2,7 @@ https://github.com/smorce/Parakeet
 
 
 Gradio: http://localhost:3791/
-FastAPI: port: 5466
+FastAPI: http://localhost:5466/docs
 
 
 ## 使い方
